@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Vibe Kanban</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap');
+
+        :root {
+            --bg-color: #0d0d12;
+            --neon-green: #39ff14;
+            --neon-red: #ff003c;
+            --panel-bg: #1a1a24;
+            --text-color: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Fira Code', monospace;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+            transition: background-color 0.5s, box-shadow 0.5s;
+        }
+
+        body.sad-vibe {
+            --neon-green: var(--neon-red);
+            background-color: #1a0505;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            text-shadow: 0 0 10px var(--neon-green);
+            color: var(--neon-green);
+            margin: 0 0 10px 0;
+        }
+
+        .pet-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .cat-image {
+            width: 150px;
+            height: auto;
+            filter: drop-shadow(0 0 15px var(--neon-green));
+            transition: filter 0.3s, transform 0.2s;
+        }
+
+        .sad-vibe .cat-image {
+            filter: drop-shadow(0 0 20px var(--neon-red)) grayscale(50%);
+            transform: scale(0.95);
+        }
+
+        .health-bar {
+            width: 200px;
+            height: 10px;
+            background: #333;
+            border-radius: 5px;
+            margin-top: 10px;
+            overflow: hidden;
+            border: 1px solid var(--neon-green);
+        }
+
+        .health-fill {
+            height: 100%;
+            background: var(--neon-green);
+            width: 100%;
+            transition: width 0.5s ease, background 0.5s;
+        }
+
+        .board {
+            display: flex;
+            gap: 20px;
+            width: 100%;
+            max-width: 1000px;
+            justify-content: space-between;
+        }
+
+        .column {
+            flex: 1;
+            background: var(--panel-bg);
+            border: 1px solid var(--neon-green);
+            border-radius: 8px;
+            padding: 15px;
+            min-height: 400px;
+            box-shadow: inset 0 0 10px rgba(57, 255, 20, 0.1);
+        }
+
+        .column h2 {
+            font-size: 1.2rem;
+            text-align: center;
+            border-bottom: 1px dashed var(--neon-green);
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+
+        .task {
+            background: #2a2a36;
+            border: 1px solid #444;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            cursor: grab;
+            transition: transform 0.1s;
+        }
+
+        .task:active {
+            cursor: grabbing;
+            transform: scale(1.02);
+            border-color: var(--neon-green);
+            box-shadow: 0 0 8px var(--neon-green);
+        }
+
+        .add-task {
+            width: 100%;
+            padding: 10px;
+            background: transparent;
+            border: 1px solid var(--neon-green);
+            color: var(--neon-green);
+            font-family: inherit;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-top: 10px;
+            transition: all 0.2s;
+        }
+
+        .add-task:hover {
+            background: var(--neon-green);
+            color: var(--bg-color);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>[ TERMINAL_KANBAN ]</h1>
+    </header>
+
+    <div class="pet-container">
+        <img src="cat.png" alt="Cyber Cat" class="cat-image" id="catAvatar">
+        <div class="health-bar">
+            <div class="health-fill" id="healthFill"></div>
+        </div>
+        <p id="petStatus">Настроение: СТАБИЛЬНОЕ</p>
+    </div>
+
+    <div class="board">
+        <div class="column" id="todo" ondrop="drop(event)" ondragover="allowDrop(event)">
+            <h2>TODO</h2>
+            <button class="add-task" onclick="createTask()">+ ADD TASK</button>
+        </div>
+        
+        <div class="column" id="in-progress" ondrop="drop(event)" ondragover="allowDrop(event)">
+            <h2>IN PROGRESS</h2>
+        </div>
+        
+        <div class="column" id="done" ondrop="drop(event)" ondragover="allowDrop(event)">
+            <h2>DONE</h2>
+        </div>
+    </div>
+
+    <script>
+        // --- Web Audio API для звуков ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            if (type === 'drop') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            } else if (type === 'eat') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
+            }
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.2);
+        }
+
+        // --- Состояние и LocalStorage ---
+        let tasks = JSON.parse(localStorage.getItem('kanbanTasks')) || [];
+        let catHealth = parseInt(localStorage.getItem('catHealth')) || 100;
+
+        function saveState() {
+            localStorage.setItem('kanbanTasks', JSON.stringify(tasks));
+            localStorage.setItem('catHealth', catHealth);
+            updateUI();
+        }
+
+        // --- Drag & Drop Логика ---
+        function allowDrop(ev) {
+            ev.preventDefault();
+        }
+
+        function drag(ev) {
+            ev.dataTransfer.setData("text", ev.target.id);
+        }
+
+        function drop(ev) {
+            ev.preventDefault();
+            const data = ev.dataTransfer.getData("text");
+            const draggedElement = document.getElementById(data);
+            
+            // Находим колонку, куда бросили
+            let dropTarget = ev.target;
+            while (!dropTarget.classList.contains('column')) {
+                dropTarget = dropTarget.parentElement;
+            }
+            
+            dropTarget.appendChild(draggedElement);
+            playSound('drop');
+
+            // Обновляем статус задачи в массиве
+            const taskIndex = tasks.findIndex(t => t.id === data);
+            if (taskIndex > -1) {
+                tasks[taskIndex].status = dropTarget.id;
+                
+                // Если задача перенесена в Done, кормим кота
+                if (dropTarget.id === 'done') {
+                    catHealth = Math.min(100, catHealth + 20);
+                    playSound('eat');
+                }
+            }
+            saveState();
+        }
+
+        // --- Управление задачами ---
+        function createTask() {
+            const content = prompt("Введите задачу:");
+            if (!content) return;
+
+            const newTask = {
+                id: 'task-' + Date.now(),
+                content: content,
+                status: 'todo'
+            };
+            tasks.push(newTask);
+            renderTask(newTask);
+            saveState();
+        }
+
+        function renderTask(task) {
+            const el = document.createElement('div');
+            el.className = 'task';
+            el.id = task.id;
+            el.draggable = true;
+            el.innerText = task.content;
+            el.ondragstart = drag;
+            
+            const column = document.getElementById(task.status);
+            if (column) column.appendChild(el);
+        }
+
+        function init() {
+            tasks.forEach(renderTask);
+            updateUI();
+            
+            // Механика истощения: Кот теряет здоровье, если есть задачи в In Progress
+            setInterval(() => {
+                const inProgressTasks = tasks.filter(t => t.status === 'in-progress').length;
+                if (inProgressTasks > 0) {
+                    catHealth = Math.max(0, catHealth - (2 * inProgressTasks));
+                    saveState();
+                }
+            }, 10000); // Проверка каждые 10 секунд (для демо)
+        }
+
+        // --- Обновление интерфейса тамагочи ---
+        function updateUI() {
+            const healthFill = document.getElementById('healthFill');
+            const status = document.getElementById('petStatus');
+            const body = document.body;
+
+            healthFill.style.width = catHealth + '%';
+
+            if (catHealth > 50) {
+                body.classList.remove('sad-vibe');
+                status.innerText = "Настроение: СТАБИЛЬНОЕ";
+                healthFill.style.background = "var(--neon-green)";
+            } else if (catHealth > 0) {
+                body.classList.add('sad-vibe');
+                status.innerText = "Настроение: СТРЕСС (Задачи висят!)";
+                healthFill.style.background = "var(--neon-red)";
+            } else {
+                body.classList.add('sad-vibe');
+                status.innerText = "Настроение: КРИТИЧЕСКОЕ. СРОЧНО ЗАКРОЙ ТАСКУ!";
+                healthFill.style.background = "var(--neon-red)";
+            }
+        }
+
+        // Запуск
+        init();
+    </script>
+</body>
+</html>
